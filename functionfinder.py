@@ -36,17 +36,17 @@ x_differences = [points_x[i+1]-x for i,x in enumerate(points_x[:-1])]
 y_differences = [points_y[i+1]-y for i,y in enumerate(points_y[:-1])]
 
 if len(points_x) > 2: #Originally was calculating quadratics by using 2nd differences, but that resulted in issues when x0 != 1, x1 != 2...
-    x1, x2, x3 = points_x[:3]
+    x1, x2, x3 = points_x[:3] #Calculate parabola that fits the first 3 points
     y1, y2, y3 = points_y[:3]
-    denom = (x1 - x2)*(x1 - x3)*(x2 - x3)
+    denom = (x1 - x2)*(x1 - x3)*(x2 - x3) #These are derived from the matrix equations to solve for a parabola given 3 points.
     a = (x3 * (y2 - y1) + x2 * (y1 - y3) + x1 * (y3 - y2)) / denom
     b = (x3**2 * (y1 - y2) + x2**2 * (y3 - y1) + x1**2 * (y2 - y3)) / denom
     c = (x2 * x3 * (x2 - x3) * y1 + x3 * x1 * (x3 - x1) * y2 + x1 * x2 * (x1 - x2) * y3) / denom
     
-    for x, y in zip(points_x, points_y):
+    for x, y in zip(points_x, points_y): #Check if it fits all of the points
         if not a*x**2+b*x+c == y:
-            break
-    else:
+            break #There is an issue.
+    else: #It fits
         print("Points fit a quadratic") #ax^2+bx+c
         func = f"f(x)={a}x^2 + {b}x + {c}"
         print(func)
@@ -59,39 +59,41 @@ if len(points_x) > 2: #Originally was calculating quadratics by using 2nd differ
 x_ratios = [points_x[i+1]/x for i,x in enumerate(points_x[:-1])]
 y_ratios = [points_y[i+1]/y for i,y in enumerate(points_y[:-1])]
 
-stdDevXDiff = statistics.stdev(x_differences)
-stdDevYDiff = statistics.stdev(y_differences)
+deltaXYRatios = [x_differences[i]/y for i, y in enumerate(y_differences)]
+deltaXRatioYRatios = [x_differences[i]/y for i, y in enumerate(y_ratios)]
+ratioXRatioYRatios = [x_ratios[i]/y for i, y in enumerate(y_ratios)]
+ratioXDeltaYRatios = [x_ratios[i]/y for i, y in enumerate(y_differences)]
+
+linearError = statistics.stdev(deltaXYRatios)
+exponentialError = statistics.stdev(deltaXRatioYRatios)
 stdDevXRatio = statistics.stdev(x_ratios)
 stdDevYRatio = statistics.stdev(y_ratios)
 
 #print(stdDevXDiff, stdDevXRatio, stdDevYDiff, stdDevYRatio)
 
-if stdDevXDiff == 0: #Add a constant to X
-    if stdDevYDiff == 0: #Add a constant to Y
-        dx = x_differences[0]
-        dy = y_differences[0]
-        m = dy/dx
-        c = points_y[0]-points_x[0]*m
-        print("Points fit a linear function.")
-        func = f"f(x)={m}x+{c}"
-        x_ords = list(np.arange(points_x[0]-1,points_x[-1]+2, 0.1))
-        y_ords = list([m*x+c for x in x_ords])
-        line = plt.plot(x_ords,y_ords, label=func, linewidth=2)
-        print(func)
-    if stdDevYRatio == 0: #Multiply by a constant on Y
-        print("Points fit on an exponential")
-        dx = x_differences[0]
-        ry = y_ratios[0]
-        #ry = b^dx
-        b = ry**(1/dx)
-        a = points_y[0]/(b**points_x[0])
-        func = f"f(x)={a}*{b}^x"
-        x_ords = list(np.arange(points_x[0]-1,points_x[-1]+2, 0.1))
-        y_ords = list([a*b**x for x in x_ords])
-        line = plt.plot(x_ords,y_ords, label=func, linewidth=2)
-        print(func)
-
-    pass
+if linearError == 0: #Add a constant to X and Y
+    dx = x_differences[0]
+    dy = y_differences[0]
+    m = dy/dx
+    c = points_y[0]-points_x[0]*m
+    print("Points fit a linear function.")
+    func = f"f(x)={m}x+{c}"
+    x_ords = list(np.arange(points_x[0]-1,points_x[-1]+2, 0.1))
+    y_ords = list([m*x+c for x in x_ords])
+    line = plt.plot(x_ords,y_ords, label=func, linewidth=2)
+    print(func)
+if exponentialError == 0: #Multiply by a constant on Y
+    print("Points fit on an exponential")
+    dx = x_differences[0]
+    ry = y_ratios[0]
+    #ry = b^dx
+    b = ry**(1/dx)
+    a = points_y[0]/(b**points_x[0])
+    func = f"f(x)={a}*{b}^x"
+    x_ords = list(np.arange(points_x[0]-1,points_x[-1]+2, 0.1))
+    y_ords = list([a*b**x for x in x_ords])
+    line = plt.plot(x_ords,y_ords, label=func, linewidth=2)
+    print(func)
 
 plt.scatter(points_x,points_y)
 plt.legend()

@@ -7,6 +7,7 @@ FLOAT_THRESHOLD = 0.0005
 
 fig, axs = plt.subplots(2, 3, figsize=(9, 6))
 
+
 points_x = []
 points_y = []
 num_points = 0
@@ -37,13 +38,11 @@ while len(points_x) < num_points:
 points_y = [y for _, y in sorted(zip(points_x, points_y))]
 points_x.sort()  # Sort X ordinates
 
-# Calculate differences
-x_differences = [points_x[i+1]-x for i, x in enumerate(points_x[:-1])]
-y_differences = [points_y[i+1]-y for i, y in enumerate(points_y[:-1])]
-
 # Originally was calculating quadratics by using 2nd differences, but that resulted in issues when x0 != 1, x1 != 2...
+# Check that there are at least 3 points, hence the disabled pylint line.
 if len(points_x) > 2:
     # Calculate parabola that fits the first 3 points
+    # pylint: disable=unbalanced-tuple-unpacking
     x1, x2, x3 = points_x[:3]
     y1, y2, y3 = points_y[:3]
     # These are derived from the matrix equations to solve for a parabola given 3 points.
@@ -54,25 +53,34 @@ if len(points_x) > 2:
          * y2 + x1 * x2 * (x1 - x2) * y3) / denom
 
     for x, y in zip(points_x, points_y):  # Check if it fits all of the points
+        # Floating point math is not exact, check if expected-actual is less than a threshold
         if not abs(a*x**2+b*x+c - y) < FLOAT_THRESHOLD:
+            # Points are not a quadratic
             axs[0, 0].set_title("Not a valid quadratic.")
-            axs[0, 0].axis("off")
-            break  # There is an issue.
+            axs[0, 0].axis("off")  # Don't draw the graph
+            break
     else:  # It fits
         print("Points fit a quadratic")  # ax^2+bx+c
         func = f"$f(x)={round(a,4)}x^2 + {round(b,4)}x + {round(c,4)}$"
-        print(func)
+        print(func)  # Log the formula to std out
+        # List of x coordinates for drawing f(x)
         x_ords = list(np.arange(points_x[0]-1, points_x[-1]+2, 0.1))
         y_ords = list([a*x**2+b*x+c for x in x_ords])
-        line = axs[0, 0].plot(x_ords, y_ords, label=func, linewidth=2)
-        axs[0, 0].set_title(func)
-        axs[0, 0].scatter(points_x, points_y)
-        axs[0, 0].axhline(c='black')
+        line = axs[0, 0].plot(x_ords, y_ords, label=func,
+                              linewidth=2)  # Plot on subplot
+        axs[0, 0].set_title(func)  # Display function at top
+        axs[0, 0].scatter(points_x, points_y)  # Display given points on graph
+        axs[0, 0].axhline(c='black')  # Draw line at y=0
 else:
+    # Too few points to determine a unique quadratic
     axs[0, 0].set_title("Not a unique quadratic.")
-    axs[0, 0].axis("off")
+    axs[0, 0].axis("off")  # Don't draw a graph
 
+# Calculate differences (x_(i+1)-x_i, y_(i+1)-y_i)
+x_differences = [points_x[i+1]-x for i, x in enumerate(points_x[:-1])]
+y_differences = [points_y[i+1]-y for i, y in enumerate(points_y[:-1])]
 
+# Calculate ratios (x_(i+1)/x_i, y_(i+1)/y_i)
 x_ratios = [points_x[i+1]/x for i, x in enumerate(points_x[:-1])]
 y_ratios = [points_y[i+1]/y for i, y in enumerate(points_y[:-1])]
 
@@ -90,6 +98,7 @@ ratioXDeltaYRatios = [
 
 
 # The closer to 0 xError is, the more likely f(x) is a x-typed function.
+# Ternary used to set stdev as 0 if there are only 2 points.
 linearError = 0 if len(deltaXYRatios) < 2 else statistics.stdev(deltaXYRatios)
 exponentialError = 0 if len(
     deltaXRatioYRatios) < 2 else statistics.stdev(deltaXRatioYRatios)
@@ -98,11 +107,12 @@ powerError = 0 if len(ratioXRatioYRatios) < 2 else statistics.stdev(
 logError = 0 if len(ratioXDeltaYRatios) < 2 else statistics.stdev(
     ratioXDeltaYRatios)
 
-math.log
+# print(stdDevXDiff, stdDevXRatio, stdDevYDiff, stdDevYRatio) #Uncomment this line to print these
 
-#print(stdDevXDiff, stdDevXRatio, stdDevYDiff, stdDevYRatio)
+# Check abs(errors) < FLOAT_THRESHOLD so that floating point error does not mess with calculations
 
-if linearError == 0:  # Add a constant to X and Y
+# Check if function is linear
+if abs(linearError) < FLOAT_THRESHOLD:  # Add a constant to X and Y
     dx = x_differences[0]
     dy = y_differences[0]
     m = dy/dx
@@ -120,6 +130,7 @@ else:
     axs[0, 1].set_title("Not a valid linear function")
     axs[0, 1].axis("off")
 
+# Function is exponential
 if abs(exponentialError) < FLOAT_THRESHOLD:  # Multiply by a constant on Y
     print("Points fit on an exponential")
     dx = x_differences[0]
@@ -139,6 +150,7 @@ else:
     axs[1, 0].set_title("Not a valid exponential function")
     axs[1, 0].axis("off")
 
+# Function is power
 if abs(powerError) < FLOAT_THRESHOLD:
     print("Points fit on a power curve")
     rx = x_ratios[0]
@@ -157,6 +169,7 @@ else:
     axs[1, 1].set_title("Not a valid power function.")
     axs[1, 1].axis("off")
 
+# Function is log
 if abs(logError) < FLOAT_THRESHOLD:
     print("Points fit on a logarithmic curve")
     rx = x_ratios[0]
@@ -181,16 +194,15 @@ else:
     axs[1, 2].set_title("Not a valid logarithmic function.")
     axs[1, 2].axis("off")
 
-tableData = list(zip(points_x, points_y))
-#tableData.append([[points_x[i],y] for i,y in enumerate(points_y)])
+tableData = list(zip(points_x, points_y)) # Display a table of entered points
 tbl = axs[0, 2].table(tableData, colLabels=['x', 'y'], loc="center")
 tbl.auto_set_font_size(True)
 axs[0, 2].axis("off")
 
-# for ax in axs.reshape(-1):
+# for ax in axs.reshape(-1): #This iterates through the subplot axes
 
 
-plt.subplots_adjust(left=0.05, right=0.95, top=0.95,
-                    bottom=0.05, hspace=.5, wspace=0.4)
-plt.title = "Functions fit for given points:"
+plt.subplots_adjust(left=0.1, right=0.9, top=0.9, #Adjust plot spacing
+                    bottom=0.1, hspace=.5, wspace=0.4)
+plt.suptitle("Functions fit for given points:")
 plt.show()

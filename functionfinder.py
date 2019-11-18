@@ -81,57 +81,60 @@ x_differences = [points_x[i+1]-x for i, x in enumerate(points_x[:-1])]
 y_differences = [points_y[i+1]-y for i, y in enumerate(points_y[:-1])]
 
 # Calculate ratios (x_(i+1)/x_i, y_(i+1)/y_i)
-x_ratios = [points_x[i+1]/x for i, x in enumerate(points_x[:-1])]
-y_ratios = [points_y[i+1]/y for i, y in enumerate(points_y[:-1])]
+x_ratios = [points_x[i+1]/x for i, x in enumerate(points_x[:-1]) if not 0 in points_x]
+y_ratios = [points_y[i+1]/y for i, y in enumerate(points_y[:-1]) if not 0 in points_y]
 
 # ratio between the 2 difference arrays
 deltaXYRatios = [x_differences[i]/y for i, y in enumerate(y_differences)]
-# ratio between x delta and y ratio
-deltaXRatioYRatios = [x_differences[i] /
-                      math.log(y) for i, y in enumerate(y_ratios)]
-# convert x to linear and y to linear, check ratios
-ratioXRatioYRatios = [math.log(x_ratios[i])/math.log(y)
-                      for i, y in enumerate(y_ratios)]
-# convert x to linear, check ratios.
-ratioXDeltaYRatios = [
-    math.log(x_ratios[i])/y for i, y in enumerate(y_differences)]
+linearError = 0 if len(deltaXYRatios) < 2 else abs(statistics.stdev(deltaXYRatios))
+# ratio between x delta and y ratio, used for determining exponentials
+
+exponentialError = -1 #-1 indicates impossible
+if min(points_y) > 0: #precondition for exponentials
+    deltaXRatioYRatios = [x_differences[i] / math.log(y) for i, y in enumerate(y_ratios)]
+    exponentialError = 0 if len(deltaXRatioYRatios) < 2 else statistics.stdev(deltaXRatioYRatios)
+# convert x to linear and y to linear, check ratios, determines power functions
+powerError = -1
+if (points_x[0] > 0) and min(points_y) > 0:
+    ratioXRatioYRatios = [math.log(x_ratios[i])/math.log(y) for i, y in enumerate(y_ratios)]
+    powerError = 0 if len(ratioXRatioYRatios) < 2 else abs(statistics.stdev(ratioXRatioYRatios))
+# convert x to linear, check ratios. determines logarithmics functions
+logError = -1
+if points_x[0] > 0: #All x values greater than 0
+    ratioXDeltaYRatios = [math.log(x_ratios[i])/y for i, y in enumerate(y_differences)]
+    logError = 0 if len(ratioXDeltaYRatios) < 2 else abs(statistics.stdev(ratioXDeltaYRatios))
+# elif not 0 in points_x[0]: #there are negatives but no 0's
+#     ratioXDeltaYRatios = [math.log(x_ratios[i],-2)/y for i, y in enumerate(y_differences)]
+#     logError = 0 if len(ratioXDeltaYRatios) < 2 else abs(statistics.stdev(ratioXDeltaYRatios))
 
 
 # The closer to 0 xError is, the more likely f(x) is a x-typed function.
-# Ternary used to set stdev as 0 if there are only 2 points.
-linearError = 0 if len(deltaXYRatios) < 2 else statistics.stdev(deltaXYRatios)
-exponentialError = 0 if len(
-    deltaXRatioYRatios) < 2 else statistics.stdev(deltaXRatioYRatios)
-powerError = 0 if len(ratioXRatioYRatios) < 2 else statistics.stdev(
-    ratioXRatioYRatios)
-logError = 0 if len(ratioXDeltaYRatios) < 2 else statistics.stdev(
-    ratioXDeltaYRatios)
+# Check xError < FLOAT_THRESHOLD so that floating point error does not mess with calculations
 
-# print(stdDevXDiff, stdDevXRatio, stdDevYDiff, stdDevYRatio) #Uncomment this line to print these
 
-# Check abs(errors) < FLOAT_THRESHOLD so that floating point error does not mess with calculations
 
 # Check if function is linear
-if abs(linearError) < FLOAT_THRESHOLD:  # Add a constant to X and Y
+if linearError != -1 and linearError < FLOAT_THRESHOLD:  # Add a constant to X and Y
     dx = x_differences[0]
     dy = y_differences[0]
     m = dy/dx
     c = points_y[0]-points_x[0]*m
     print("Points fit a linear function.")
     func = f"$f(x)={round(m,4)}x+{round(c,4)}$"
-    x_ords = list(np.arange(points_x[0]-1, points_x[-1]+2, 0.1))
+    x_ords = list(np.arange(points_x[0]-2, points_x[-1]+3, 0.1))
     y_ords = list([m*x+c for x in x_ords])
     line = axs[0, 1].plot(x_ords, y_ords, label=func, linewidth=2)
     axs[0, 1].set_title(func)
     axs[0, 1].scatter(points_x, points_y)
     axs[0, 1].axhline(c='black')
+    axs[0, 1].axvline(c='black')
     print(func)
 else:
     axs[0, 1].set_title("Not a valid linear function")
     axs[0, 1].axis("off")
 
 # Function is exponential
-if abs(exponentialError) < FLOAT_THRESHOLD:  # Multiply by a constant on Y
+if exponentialError != -1 and exponentialError < FLOAT_THRESHOLD:  # Multiply by a constant on Y
     print("Points fit on an exponential")
     dx = x_differences[0]
     ry = y_ratios[0]
@@ -139,38 +142,40 @@ if abs(exponentialError) < FLOAT_THRESHOLD:  # Multiply by a constant on Y
     b = ry**(1/dx)
     a = points_y[0]/(b**points_x[0])
     func = f"$f(x)={round(a,4)}*{round(b,4)}^x$"
-    x_ords = list(np.arange(points_x[0]-1, points_x[-1]+2, 0.1))
+    x_ords = [ x for x in np.arange(points_x[0]-2, points_x[-1]+3, 0.1)]
     y_ords = list([a*b**x for x in x_ords])
     line = axs[1, 0].plot(x_ords, y_ords, label=func, linewidth=2)
     axs[1, 0].set_title(func)
     axs[1, 0].scatter(points_x, points_y)
     axs[1, 0].axhline(c='black')
+    axs[1, 0].axvline(c='black')
     print(func)
 else:
     axs[1, 0].set_title("Not a valid exponential function")
     axs[1, 0].axis("off")
 
 # Function is power
-if abs(powerError) < FLOAT_THRESHOLD:
+if powerError != -1 and powerError < FLOAT_THRESHOLD:
     print("Points fit on a power curve")
     rx = x_ratios[0]
     ry = y_ratios[0]
     k = math.log(ry, rx)
     a = points_y[1]/points_x[1]**k
     func = f"$f(x)={round(a,4)}*x^{{{round(k,4)}}}$"
-    x_ords = list(np.arange(points_x[0]-1, points_x[-1]+2, 0.1))
-    y_ords = list([a*x**k for x in x_ords])
+    x_ords = [ x for x in np.arange(points_x[0]-2, points_x[-1]+3, 0.1)]
+    y_ords = list([a*(x)**k for x in x_ords])
     line = axs[1, 1].plot(x_ords, y_ords, label=func, linewidth=2)
     axs[1, 1].set_title(func)
     axs[1, 1].scatter(points_x, points_y)
     axs[1, 1].axhline(c='black')
+    axs[1, 1].axvline(c='black')
     print(func)
 else:
     axs[1, 1].set_title("Not a valid power function.")
     axs[1, 1].axis("off")
 
 # Function is log
-if abs(logError) < FLOAT_THRESHOLD:
+if logError != -1 and logError < FLOAT_THRESHOLD:
     print("Points fit on a logarithmic curve")
     rx = x_ratios[0]
     dy = y_ratios[0]
@@ -180,15 +185,13 @@ if abs(logError) < FLOAT_THRESHOLD:
     b = (points_y[1]-points_y[0])/math.log(rx)
     a = points_y[0]-b*math.log(points_x[0])
     func = f"f(x)={round(a,4)}+{round(b,4)}*ln(x)"
-    x_ords = list(np.arange(points_x[0]-1, points_x[-1]+2, 0.1))
-    if x_ords[0] <= 0:
-        # math.log throws an error if x < 0.
-        x_ords = [x for x in x_ords if x > 0]
+    x_ords = [ x for x in np.arange(points_x[0]-2, points_x[-1]+3, 0.1) if x > 0]
     y_ords = list([a+b*math.log(x) for x in x_ords])
     line = axs[1, 2].plot(x_ords, y_ords, label=func, linewidth=2)
     axs[1, 2].set_title(func)
     axs[1, 2].scatter(points_x, points_y)
     axs[1, 2].axhline(c='black')
+    axs[1, 2].axvline(c='black')
     print(func)
 else:
     axs[1, 2].set_title("Not a valid logarithmic function.")
